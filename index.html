@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>주문 출처 확인판</title>
+<style>
+/* 레이아웃: 위 요약 숫자 4칸 → 보기 단추 → 주문 표(가로 스크롤). 매장 직원이 폰·PC에서 빨간 줄만 빨리 찾게 */
+:root{
+  --bg:#f3f5f4; --panel:#ffffff; --fg:#17211d; --muted:#5f6c66; --line:#dde3e0;
+  --accent:#1d6b4f; --bad:#c23a2b; --badbg:#fbecea; --ok:#1d7a4c;
+  --font:"Pretendard","Malgun Gothic","맑은 고딕",system-ui,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f1412; --panel:#18201c; --fg:#e4ebe7; --muted:#97a59e; --line:#2a3530;
+  --accent:#5fc59a; --bad:#ff7b6c; --badbg:#3a1f1b; --ok:#5fc59a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1412; --panel:#18201c; --fg:#e4ebe7; --muted:#97a59e; --line:#2a3530;
+  --accent:#5fc59a; --bad:#ff7b6c; --badbg:#3a1f1b; --ok:#5fc59a; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font:15px/1.55 var(--font);
+  padding-block:20px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1200px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+h1{margin:0;font-size:24px;letter-spacing:-.01em;text-wrap:balance}
+.lede{margin:4px 0 0;color:var(--muted)}
+.lede b{color:var(--fg);font-variant-numeric:tabular-nums}
+.tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+@media (max-width:560px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px;min-width:0}
+.tile .lab{font-size:13px;color:var(--muted)}
+.tile .num{font-size:28px;font-weight:700;font-variant-numeric:tabular-nums}
+.tile.warn .num{color:var(--bad)}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{font:inherit;font-size:14px;padding:6px 14px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--fg);cursor:pointer}
+.btn[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--bg)}
+.btn:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.search{flex:1 1 180px;min-width:0;font:inherit;padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--fg)}
+.box{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%;min-width:820px;font-size:14px}
+th{position:sticky;top:0;background:var(--panel);text-align:left;font-weight:600;color:var(--muted);font-size:13px;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.t{white-space:nowrap;font-variant-numeric:tabular-nums;color:var(--muted)}
+tr.need td{background:var(--badbg)}
+tr.cancel td{color:var(--muted);text-decoration:line-through;text-decoration-color:var(--line)}
+.pill{display:inline-block;padding:1px 9px;border-radius:999px;border:1px solid currentColor;font-size:13px;white-space:nowrap;text-decoration:none}
+.pill.ok{color:var(--ok)} .pill.bad{color:var(--bad);font-weight:600} .pill.mute{color:var(--muted)}
+.stock{color:var(--muted)}
+.foot{font-size:13px;color:var(--muted)}
+.foot dl{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;margin:8px 0 0}
+.foot dt{color:var(--fg);font-variant-numeric:tabular-nums} .foot dd{margin:0}
+.lock{max-width:360px;margin:12vh auto 0;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:22px;display:flex;flex-direction:column;gap:12px}
+.lock input[type=password]{font:inherit;padding:10px 12px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--fg)}
+.lock .err{color:var(--bad);font-size:14px;min-height:1.2em;margin:0}
+.lock label.rem{font-size:14px;color:var(--muted);display:flex;gap:6px;align-items:center}
+.stale{color:var(--bad);font-weight:600}
+</style>
+</head>
+<body>
+<form class="lock" id="lock">
+  <h1>주문 출처 확인판</h1>
+  <p class="lede" style="margin:0">매장 비밀번호를 넣으세요.</p>
+  <input id="pw" type="password" autocomplete="current-password" aria-label="비밀번호" required>
+  <label class="rem"><input id="rem" type="checkbox" checked> 이 기기에서 기억하기</label>
+  <button class="btn" type="submit" aria-pressed="true">열기</button>
+  <p class="err" id="err"></p>
+</form>
+
+<main class="wrap" id="app" hidden>
+  <header>
+    <h1>주문 출처 확인판</h1>
+    <p class="lede">오늘 주문 <b id="lTotal">—</b>건 중 매장에서 재고를 확인해야 할 주문 <b id="lNeed">—</b>건 · 마지막 갱신 <b id="lAt">—</b> <span id="lStale" class="stale" hidden>(1시간 넘게 갱신 안 됨)</span></p>
+  </header>
+  <section class="tiles">
+    <div class="tile"><div class="lab">오늘 주문</div><div class="num" id="kTotal">—</div></div>
+    <div class="tile warn"><div class="lab">확인 필요</div><div class="num" id="kNeed">—</div></div>
+    <div class="tile"><div class="lab">재고 확인됨</div><div class="num" id="kOk">—</div></div>
+    <div class="tile"><div class="lab">취소</div><div class="num" id="kCancel">—</div></div>
+  </section>
+  <div class="bar" role="group" aria-label="보기">
+    <button type="button" class="btn" data-day="today" aria-pressed="true">오늘</button>
+    <button type="button" class="btn" data-day="yday" aria-pressed="false">어제</button>
+    <button type="button" class="btn" data-day="all" aria-pressed="false">이틀 모두</button>
+    <button type="button" class="btn" id="needOnly" aria-pressed="false">확인 필요만</button>
+    <input class="search" id="q" type="search" placeholder="상품·규격·주문번호 찾기 (예: 2454518)" aria-label="찾기">
+  </div>
+  <div class="box">
+    <table>
+      <thead><tr><th>주문 시각</th><th>주문번호</th><th>상품</th><th>연식</th><th class="n">수량</th><th>출처(메모 숫자)</th><th>출처 재고</th><th class="n">지금 판매수량</th><th>확인</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+  <details class="foot">
+    <summary>메모 끝 숫자와 출처</summary>
+    <dl>
+      <dt>01</dt><dd>창고 (메신저 V2 재고방)</dd>
+      <dt>02</dt><dd>매일 (매일 연식재고 엑셀 — 새 엑셀 받기 전까지 같은 숫자라 실제와 다를 수 있음)</dd>
+      <dt>03</dt><dd>한국 전산 (Smart Store, 2026년식만, 7 = 7개 이상)</dd>
+      <dt>04</dt><dd>평택 이월 — 매장 확인</dd>
+      <dt>05</dt><dd>넥센 전산 (n-partner, 2026년식만, 7 = 7개 이상)</dd>
+      <dt>06</dt><dd>이카운트 (사일룬·트라이앵글·웨스트레이크)</dd>
+      <dt>07</dt><dd>오토하이브 — 매장 확인</dd>
+      <dt>08·09</dt><dd>넥센 지방물류·양지 이월</dd>
+      <dt>10·11</dt><dd>하나·그랜드 — 매장 확인</dd>
+      <dt>12</dt><dd>극동 (T25969 겹침)</dd>
+      <dt>13·14·15</dt><dd>황제·대구·미치다 — 매장 확인</dd>
+      <dt>00</dt><dd>출처 불명 — 반드시 확인</dd>
+    </dl>
+    <p>고객 이름·주소·연락처는 이 판에 없습니다. 영업시간(월~토 9~19시)에 15분마다 자동으로 새로 채워집니다. <button type="button" class="btn" id="logout">이 기기에서 비밀번호 지우기</button></p>
+  </details>
+</main>
+
+<script>
+(function(){
+  const $=(id)=>document.getElementById(id);
+  const KEY='tg-orders-pw';
+  let pw=null, rows=[], view={day:'today',need:false,q:''};
+  const store={get(){try{return localStorage.getItem(KEY)}catch(e){return null}},set(v){try{localStorage.setItem(KEY,v)}catch(e){}},del(){try{localStorage.removeItem(KEY)}catch(e){}}};
+  const b64=(s)=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+  async function decrypt(enc,pass){
+    const base=await crypto.subtle.importKey('raw',new TextEncoder().encode(pass),'PBKDF2',false,['deriveKey']);
+    const key=await crypto.subtle.deriveKey({name:'PBKDF2',salt:b64(enc.salt),iterations:enc.iter,hash:'SHA-256'},base,{name:'AES-GCM',length:256},false,['decrypt']);
+    const buf=await crypto.subtle.decrypt({name:'AES-GCM',iv:b64(enc.iv)},key,b64(enc.data));
+    return JSON.parse(new TextDecoder().decode(buf));
+  }
+  async function load(pass){
+    const r=await fetch('data.json?t='+Date.now(),{cache:'no-store'});
+    if(!r.ok) throw new Error('자료 파일을 받지 못했습니다 ('+r.status+').');
+    const enc=await r.json();
+    let d; try{ d=await decrypt(enc,pass); }catch(e){ const x=new Error('비밀번호가 맞지 않습니다.'); x.bad=true; throw x; }
+    return {d,at:enc.at};
+  }
+  const kstToday=()=>new Date(Date.now()+9*3600*1000).toISOString().slice(0,10);
+  const isNeed=(r)=>/확인 필요|못 찾음|수량 -/.test(r.check||'');
+  function fmtAt(s){const d=new Date(s);return isNaN(d)?s:d.toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});}
+  function render(){
+    const today=kstToday();
+    const t=rows.filter(r=>r.date===today);
+    const need=t.filter(isNeed).length, cancel=t.filter(r=>r.check==='취소').length;
+    $('lTotal').textContent=$('kTotal').textContent=t.length;
+    $('lNeed').textContent=$('kNeed').textContent=need;
+    $('kOk').textContent=t.length-need-cancel; $('kCancel').textContent=cancel;
+    let list=rows.filter(r=>view.day==='all'||(view.day==='today'?r.date===today:r.date!==today));
+    if(view.need) list=list.filter(isNeed);
+    if(view.q){const q=view.q.toLowerCase().replace(/\s+/g,''); list=list.filter(r=>(String(r.order)+(r.maker||'')+(r.product||'')+(r.product||'').replace(/\D/g,'')).toLowerCase().replace(/\s+/g,'').includes(q));}
+    const tb=$('rows'); tb.replaceChildren();
+    if(!list.length){const tr=document.createElement('tr');const td=document.createElement('td');td.colSpan=9;td.textContent=view.need?'확인이 필요한 주문이 없습니다.':'주문이 없습니다.';tr.append(td);tb.append(tr);return;}
+    for(const r of list){
+      const tr=document.createElement('tr'); if(r.check==='취소') tr.className='cancel'; else if(isNeed(r)) tr.className='need';
+      const c=(txt,cls)=>{const td=document.createElement('td'); if(cls) td.className=cls; td.textContent=txt==null?'':String(txt); tr.append(td);};
+      c(String(r.time||'').slice(5),'t'); c(r.order,'t'); c(((r.maker?r.maker+' ':'')+(r.product||'')).trim()); c(r.dot);
+      c(r.qty?r.qty+'본':'','n'); c(r.source?r.source+(r.codes?' ('+r.codes+')':''):''); c(r.stock,'stock'); c(r.now==null?'':r.now,'n');
+      const td=document.createElement('td'); const p=document.createElement('span');
+      p.className='pill '+(r.check==='취소'?'mute':isNeed(r)?'bad':'ok'); p.textContent=r.check||''; td.append(p);
+      if(r.status&&r.check!=='취소'){const s=document.createElement('div');s.className='t';s.textContent=r.status;td.append(s);} tr.append(td); tb.append(tr);
+    }
+  }
+  async function refresh(){
+    try{ const {d,at}=await load(pw); rows=d.rows||[]; const m=(d.meta||[]).find(x=>x.label==='만든 때'); const when=m?m.value:at;
+      $('lAt').textContent=fmtAt(when); $('lStale').hidden=!(Date.now()-new Date(when).getTime()>3600*1000); render();
+    }catch(e){ if(e.bad){ store.del(); location.reload(); } }
+  }
+  async function open(pass,remember){
+    $('err').textContent='여는 중…';
+    try{ const {d,at}=await load(pass); pw=pass; if(remember) store.set(pass); rows=d.rows||[];
+      const m=(d.meta||[]).find(x=>x.label==='만든 때'); const when=m?m.value:at; $('lAt').textContent=fmtAt(when); $('lStale').hidden=!(Date.now()-new Date(when).getTime()>3600*1000);
+      $('lock').hidden=true; $('app').hidden=false; render(); setInterval(refresh,120000);
+    }catch(e){ $('err').textContent=e.message; if(e.bad) store.del(); }
+  }
+  $('lock').addEventListener('submit',(ev)=>{ev.preventDefault(); open($('pw').value.trim(),$('rem').checked);});
+  document.querySelectorAll('[data-day]').forEach(b=>b.addEventListener('click',()=>{view.day=b.dataset.day;document.querySelectorAll('[data-day]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));render();}));
+  $('needOnly').addEventListener('click',()=>{view.need=!view.need;$('needOnly').setAttribute('aria-pressed',String(view.need));render();});
+  $('q').addEventListener('input',()=>{view.q=$('q').value.trim();render();});
+  $('logout').addEventListener('click',()=>{store.del();location.reload();});
+  const saved=store.get(); if(saved) open(saved,true);
+})();
+</script>
+</body>
+</html>
